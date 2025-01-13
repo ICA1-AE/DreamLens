@@ -5,21 +5,12 @@
 
 # test result
 '''
-curl -X 'POST' \
-  'http://localhost:8000/split-stories' \
-  -H 'accept: application/json' \
-  -H 'Content-Type: application/json' \
-  -d '{
-  "stories": [
-    "Generated Story: \n\n1. '\''Developing effective lesson plans'\'' - Every morning, Jenny, a passionate and talented chef, starts her day by carefully crafting lesson plans for her culinary class, ensuring they learn not only cutting techniques but also the art of food presentation.\n
-    \n2. '\''Evaluating students'\'' progress'\'' - By the afternoon, she is focusing on checking each student'\''s progress, relishing the subtle improvement in their knife skills, and the newfound confidence they radiate in the kitchen.\n
-    \n3. '\''Creating engaging classroom environments'\'' - To keep her students motivated, Jenny believes in setting an engaging classroom environment; hence she ends her day by decorating her kitchen classroom with seasonal produce and the aroma of freshly baked bread.\n
-    \n4. '\''Implementing innovative teaching methods'\'' - She ends her week with a Friday \"Innovative Hour,\" where she introduces students to unconventional teaching methods, such as live cooking competitions and virtual reality-based culinary tours to keep their passion burning and always learning.""
-  ]
-}'
-
-이게 나뉜건가? 
-test 리스트 만들어보면 에러뜸..
+{
+  "image_prompts": [
+    "['1. A woman wearing a white apron and a chef's hat, developing effective lesson plans for her culinary class with a cookbook in her hand, charming, cozy watercolor illustration on white background. Seed number: 1234\n\n2. A woman wearing a white apron and a chef's hat, evaluating students' progress while standing in a kitchen classroom, charming, cozy watercolor illustration on white background. Seed number: 1234\n\n3. A woman wearing a white apron and a chef's hat, creating an engaging classroom environment decorated with seasonal produce and the aroma of freshly baked bread, charming, cozy watercolor illustration on white background. Seed number: 1234\n\n4. A woman wearing a white apron and a chef's hat, implementing innovative teaching methods, holding a virtual reality headset in a bustling kitchen classroom, charming, cozy watercolor illustration on white background. Seed number: 1234']"
+  ],
+  "error": null
+}
 '''
 
 import openai
@@ -50,14 +41,14 @@ app = FastAPI()
 
 # 요청 데이터 모델
 class PromptRequest(BaseModel):
-    prompts: str
+    splitted: List[str]
 
 # 응답 데이터 모델
 class PromptResponse(BaseModel):
     image_prompts: Optional[List[str]] = None
     error: Optional[str] = None
 
-def convert_to_image_prompts(prompts: str) -> Optional[List[str]]:
+def convert_to_image_prompts(splitted: str) -> Optional[List[str]]:
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -77,7 +68,7 @@ def convert_to_image_prompts(prompts: str) -> Optional[List[str]]:
                  `'
                  #Output :
                  """},
-                {"role": "user", "content": f"{prompts}"}
+                {"role": "user", "content": f"{splitted}"}
             ]
         )
         image_prompts = response.choices[0].message['content']
@@ -101,7 +92,7 @@ def convert_to_image_prompts(prompts: str) -> Optional[List[str]]:
 @app.post("/convert-prompt", response_model=PromptResponse)
 async def create_image_prompt(request: PromptRequest):
     try:
-        converted_prompts = convert_to_image_prompts(request.prompts)
+        converted_prompts = convert_to_image_prompts(request.splitted)
         if converted_prompts is None:
             raise HTTPException(
                 status_code=500,

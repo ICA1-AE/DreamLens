@@ -122,7 +122,7 @@ async def clear_stories():
     stories.clear()
     return {"message": "Stories cleared successfully"}
 
-#--------------------------생성된 스토리 split 처리 (additional test needed) ----------------------------- 
+#--------------------------생성된 스토리 split 처리 (test completed) ----------------------------- 
 
 # 요청 데이터 모델
 class StoriesRequest(BaseModel):
@@ -154,7 +154,7 @@ async def create_stories(request: StoriesRequest):
             detail=f"Unexpected error: {str(e)}"
         )
 
-#--------------------------DALL E 프롬프트 생성 (test failed !!!) -----------------------------
+#--------------------------DALL E 프롬프트 생성 (test completed) -----------------------------
 import ast
 from typing import Optional, List
 
@@ -162,14 +162,14 @@ app = FastAPI()
 
 # 요청 데이터 모델
 class PromptRequest(BaseModel):
-    prompts: str # !!! 입력 데이터 위의 split 처리된 스토리 결과와 연결 필요
+    splitted: List[str] 
 
 # 응답 데이터 모델
 class PromptResponse(BaseModel):
     image_prompts: Optional[List[str]] = None
     error: Optional[str] = None
 
-def convert_to_image_prompts(prompts: str) -> Optional[List[str]]:
+def convert_to_image_prompts(splitted: str) -> Optional[List[str]]:
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -189,7 +189,7 @@ def convert_to_image_prompts(prompts: str) -> Optional[List[str]]:
                  `'
                  #Output :
                  """},
-                {"role": "user", "content": f"{prompts}"}
+                {"role": "user", "content": f"{splitted}"}
             ]
         )
         image_prompts = response.choices[0].message['content']
@@ -241,11 +241,11 @@ async def get_cached_prompt(prompt_id: str):
         detail="Prompt not found in cache"
     )
 
-#--------------------------DALL E 이미지 생성 -----------------------------
+#--------------------------DALL E 이미지 생성 (test completed)-----------------------------
 
 # 요청 데이터 모델
 class ImageRequest(BaseModel):
-    prompt: str
+    prompt: str # !!! 이전 아웃풋이 리스트 형태여서 각 인덱스별로 반복으로 받아야함
     n: int = Field(default=1, ge=1, le=10)  # 1에서 10 사이의 값만 허용
     size: str = Field(default="1024x1024", pattern="^(1024x1024|512x512|256x256)$")
     quality: str = Field(default="standard", pattern="^(standard|hd)$")

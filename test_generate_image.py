@@ -33,39 +33,84 @@ import requests
 
 # FastAPI 앱 인스턴스 생성
 app = FastAPI()
-#--------------------------생성된 스토리 split 처리  ----------------------------- 
+#--------------------------DALL E 이미지 생성 -----------------------------
 
 # 요청 데이터 모델
-class StoriesRequest(BaseModel):
-    stories: List[str]
+class ImageRequest(BaseModel):
+    prompt: str
+    n: int = Field(default=1, ge=1, le=10)  # 1에서 10 사이의 값만 허용
+    size: str = Field(default="1024x1024", pattern="^(1024x1024|512x512|256x256)$")
+    quality: str = Field(default="standard", pattern="^(standard|hd)$")
 
 # 응답 데이터 모델
-class StoriesResponse(BaseModel):
-    splitted: List[str]
+class ImageResponse(BaseModel):
+    image_urls: Optional[List[str]] = None
+    error: Optional[str] = None
 
-def split_stories(stories: List[str]) -> List[str]:
+def generate_image(
+    prompt: str,
+    n: int = 1,
+    size: str = "1024x1024",
+    quality: str = "standard"
+) -> Optional[List[str]]:
     try:
-        return [story.split(':')[1].strip() for story in stories[0].split('\n\n')]
-    except Exception as e:
+        response = openai.Image.create(
+            model="dall-e-3",
+            prompt=prompt,
+            n=n,
+            size=size,
+            quality=quality,
+            response_format="url"
+        )
+        image_urls = [data["url"] for data in response["data"]]
+        return image_urls
+
+    except openai.error.OpenAIError as e:
         raise HTTPException(
-            status_code=400,
-            detail=f"Error extracting stories: {str(e)}"
+            status_code=500,
+            detail=f"OpenAI API 오류: {str(e)}"
+        )
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"요청 오류: {str(e)}"
         )
 
-@app.post("/split-stories", response_model=StoriesResponse)
-async def create_stories(request: StoriesRequest):
-    print(request.stories)
-    return StoriesResponse(splitted=request.stories)
+@app.post("/generate-image", response_model=ImageResponse)
+async def create_image(request: ImageRequest):
     try:
-        result = split_stories(request.stories)
-        return StoriesResponse(splitted=result)
+        image_urls = generate_image(
+            prompt=request.prompt,
+            n=request.n,
+            size=request.size,
+            quality=request.quality
+        )
+        if image_urls is None:
+            raise HTTPException(
+                status_code=500,
+                detail="이미지 생성 실패"
+            )
+        return ImageResponse(image_urls=image_urls)
     except HTTPException as he:
         raise he
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Unexpected error: {str(e)}"
+            detail=f"예상치 못한 오류: {str(e)}"
         )
+
+# 생성된 이미지 URL 캐시
+image_cache = {}
+
+# 캐시된 이미지 URL 조회
+@app.get("/cached-image/{image_id}", response_model=ImageResponse)
+async def get_cached_image(image_id: str):
+    if image_id in image_cache:
+        return ImageResponse(image_urls=image_cache[image_id])
+    raise HTTPException(
+        status_code=404,
+        detail="이미지를 찾을 수 없습니다"
+    )
     
 import uvicorn
 if __name__ == "__main__":
